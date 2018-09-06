@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import TransactionItem from './TransactionItem';
 import { formatAmountWithDecimals } from '../../../utils';
-import * as TokenService from '../../../services/TokenService';
+import * as AssetService from '../../../services/AssetService';
 
 class CancelledItem extends Component {
   constructor(props) {
@@ -16,11 +16,11 @@ class CancelledItem extends Component {
   }
 
   async componentDidMount() {
-    const makerToken = TokenService.findTokenByAddress(
+    const makerToken = AssetService.findAssetByAddress(
       this.props.transaction.makerToken ||
         this.props.transaction.makerTokenAddress
     );
-    const takerToken = TokenService.findTokenByAddress(
+    const takerToken = AssetService.findAssetByAddress(
       this.props.transaction.takerToken ||
         this.props.transaction.takerTokenAddress
     );

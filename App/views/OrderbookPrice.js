@@ -1,9 +1,9 @@
-import BigNumber from 'bignumber.js';
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+import ZeroExClient from '../../clients/0x';
+import * as AssetService from '../../services/AssetService';
 import * as OrderService from '../../services/OrderService';
-import * as TokenService from '../../services/TokenService';
 import FormattedTokenAmount from '../components/FormattedTokenAmount';
 
 export class OrderbookPrice extends Component {
@@ -15,8 +15,8 @@ export class OrderbookPrice extends Component {
     }
 
     const [baseTokenSymbol, quoteTokenSymbol] = product.split('-');
-    const baseToken = TokenService.findTokenBySymbol(baseTokenSymbol);
-    const quoteToken = TokenService.findTokenBySymbol(quoteTokenSymbol);
+    const baseToken = AssetService.findAssetBySymbol(baseTokenSymbol);
+    const quoteToken = AssetService.findAssetBySymbol(quoteTokenSymbol);
 
     if (!baseToken || !quoteToken) {
       return <FormattedTokenAmount {...this.props} amount={0} />;
@@ -33,7 +33,7 @@ export class OrderbookPrice extends Component {
         ? OrderService.getOrderPrice(
             side === 'buy' ? orderbook.bids[0] : orderbook.asks[0]
           )
-        : new BigNumber(0);
+        : ZeroExClient.ZERO;
 
     return (
       <FormattedTokenAmount

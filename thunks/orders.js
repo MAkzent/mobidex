@@ -1,76 +1,57 @@
 import { HttpClient } from '@0xproject/connect';
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { orderParsingUtils } from '@0xproject/order-utils';
+import { Web3Wrapper } from '@0xproject/web3-wrapper';
+import { assetDataUtils, BigNumber } from '0x.js';
 import ethUtil from 'ethereumjs-util';
 import * as _ from 'lodash';
-import {
-  addOrders,
-  setOrders,
-  setOrderbook,
-  setProducts,
-  setTokens
-} from '../actions';
+import { addAssets, setOrders, setOrderbook, setProducts } from '../actions';
 import EthereumClient from '../clients/ethereum';
 import RelayerClient from '../clients/relayer';
 import TokenClient from '../clients/token';
 import ZeroExClient from '../clients/0x';
+import * as AssetService from '../services/AssetService';
 import NavigationService from '../services/NavigationService';
 import * as OrderService from '../services/OrderService';
-import * as TokenService from '../services/TokenService';
 import { TransactionService } from '../services/TransactionService';
-import * as ZeroExService from '../services/ZeroExService';
 import { formatProduct } from '../utils';
+import { fillOrder as _fillOrder, batchFillOrKill } from './0x';
 import {
   checkAndWrapEther,
   checkAndUnwrapEther,
   checkAndSetTokenAllowance
 } from './wallet';
 
-function fixOrder(order) {
-  return {
-    ...order,
-    makerTokenAmount: new BigNumber(order.makerTokenAmount),
-    takerTokenAmount: new BigNumber(order.takerTokenAmount),
-    makerFee: new BigNumber(order.makerFee),
-    takerFee: new BigNumber(order.takerFee),
-    expirationUnixTimestampSec: new BigNumber(order.expirationUnixTimestampSec),
-    salt: new BigNumber(order.salt)
-  };
-}
-
 function fixOrders(orders) {
   if (!orders) return null;
-  return orders.map(fixOrder);
+  return orders
+    .filter(order => Boolean(order))
+    .map(orderParsingUtils.convertOrderStringFieldsToBigNumber);
 }
 
-export function loadOrderbook(
-  baseTokenAddress,
-  quoteTokenAddress,
-  force = false
-) {
+export function loadOrderbook(baseAssetData, quoteAssetData, force = false) {
   return async (dispatch, getState) => {
     let {
       settings: { network, relayerEndpoint }
     } = getState();
 
-    const baseToken = TokenService.findTokenByAddress(baseTokenAddress);
-    const quoteToken = TokenService.findTokenByAddress(quoteTokenAddress);
+    const baseAsset = AssetService.findAssetByData(baseAssetData);
+    const quoteAsset = AssetService.findAssetByData(quoteAssetData);
 
-    if (!baseToken) {
-      throw new Error('Could not find base token');
+    if (!baseAsset) {
+      throw new Error('Could not find base asset');
     }
 
-    if (!quoteToken) {
-      throw new Error('Could not find quote token');
+    if (!quoteAsset) {
+      throw new Error('Could not find quote asset');
     }
 
-    const product = formatProduct(baseToken.symbol, quoteToken.symbol);
+    const product = formatProduct(baseAsset.symbol, quoteAsset.symbol);
 
     try {
       const client = new RelayerClient(relayerEndpoint, { network });
       const orderbook = await client.getOrderbook(
-        baseTokenAddress,
-        quoteTokenAddress,
+        baseAsset.assetData,
+        quoteAsset.assetData,
         force
       );
       orderbook.asks = fixOrders(orderbook.asks);
@@ -90,7 +71,11 @@ export function loadOrderbooks(force = false) {
 
     for (const product of products) {
       await dispatch(
-        loadOrderbook(product.tokenB.address, product.tokenA.address, force)
+        loadOrderbook(
+          product.assetDataB.assetData,
+          product.assetDataA.assetData,
+          force
+        )
       );
     }
   };
@@ -123,7 +108,12 @@ export function loadOrder(orderHash) {
     try {
       const client = new RelayerClient(relayerEndpoint, { network });
       const order = await client.getOrder(orderHash);
-      dispatch(setOrders([fixOrder(order)]));
+      if (!order) return;
+      dispatch(
+        setOrders([
+          orderParsingUtils.convertOrderStringFieldsToBigNumber(order)
+        ])
+      );
     } catch (err) {
       NavigationService.error(err);
     }
@@ -138,16 +128,27 @@ export function loadProducts(force = false) {
 
     try {
       const client = new RelayerClient(relayerEndpoint, { network });
-      const pairs = await client.getTokenPairs(force);
-      dispatch(setProducts(pairs));
+      const pairs = await client.getAssetPairs(force);
+      const extendedPairs = pairs.map(({ assetDataA, assetDataB }) => ({
+        assetDataA: {
+          ...assetDataA,
+          address: assetDataUtils.decodeERC20AssetData(assetDataA.assetData)
+            .tokenAddress
+        },
+        assetDataB: {
+          ...assetDataB,
+          address: assetDataUtils.decodeERC20AssetData(assetDataB.assetData)
+            .tokenAddress
+        }
+      }));
+      dispatch(setProducts(extendedPairs));
     } catch (err) {
-      console.warn(err);
       NavigationService.error(err);
     }
   };
 }
 
-export function loadTokens(force = false) {
+export function loadAssets(force = false) {
   return async (dispatch, getState) => {
     const {
       relayer: { products },
@@ -156,30 +157,35 @@ export function loadTokens(force = false) {
 
     try {
       const ethereumClient = new EthereumClient(web3);
-      const productsA = products.map(pair => pair.tokenA);
-      const productsB = products.map(pair => pair.tokenB);
-      const allTokens = _.unionBy(productsA, productsB, 'address');
-      const allExtendedTokens = await Promise.all(
-        allTokens.map(async token => {
-          const tokenClient = new TokenClient(ethereumClient, token.address);
+      const productsA = products.map(pair => pair.assetDataA);
+      const productsB = products.map(pair => pair.assetDataB);
+      const allAssets = _.unionBy(productsA, productsB, 'assetData');
+      const allExtendedAssets = await Promise.all(
+        allAssets.map(async asset => {
+          const tokenClient = new TokenClient(ethereumClient, asset.address);
           const extendedToken = await tokenClient.get(force);
           return {
-            ...token,
+            ...asset,
             ...extendedToken
           };
         })
       );
-      dispatch(setTokens(allExtendedTokens));
+      dispatch(
+        addAssets(
+          [
+            {
+              assetData: null,
+              address: null,
+              decimals: 18,
+              name: 'Ether',
+              symbol: 'ETH'
+            }
+          ].concat(allExtendedAssets)
+        )
+      );
     } catch (err) {
       NavigationService.error(err);
     }
-  };
-}
-
-export function loadProductsAndTokens() {
-  return async dispatch => {
-    await dispatch(loadProducts());
-    await dispatch(loadTokens());
   };
 }
 
@@ -189,23 +195,29 @@ export function submitOrder(signedOrder) {
       settings: { relayerEndpoint }
     } = getState();
     const relayerClient = new HttpClient(relayerEndpoint);
+    const makerTokenAddress = assetDataUtils.decodeERC20AssetData(
+      signedOrder.makerAssetData
+    ).tokenAddress;
+    const takerTokenAddress = assetDataUtils.decodeERC20AssetData(
+      signedOrder.takerAssetData
+    ).tokenAddress;
 
     await dispatch(
-      checkAndWrapEther(
-        signedOrder.makerTokenAddress,
-        signedOrder.makerTokenAmount,
-        { wei: true, batch: false }
-      )
+      checkAndWrapEther(makerTokenAddress, signedOrder.makerAssetAmount, {
+        wei: true,
+        batch: false
+      })
     );
     await dispatch(
       checkAndSetTokenAllowance(
-        signedOrder.makerTokenAddress,
-        signedOrder.makerTokenAmount,
+        takerTokenAddress,
+        signedOrder.takerAssetAmount,
         { wei: true, batch: false }
       )
     );
 
     // Submit
+    console.warn(JSON.stringify(signedOrder));
     await relayerClient.submitOrderAsync(signedOrder);
 
     dispatch(loadOrder(signedOrder.orderHash));
@@ -214,19 +226,19 @@ export function submitOrder(signedOrder) {
 
 export function fillOrder(order, amount = null) {
   return async dispatch => {
-    const quoteToken = TokenService.getQuoteToken();
+    const quoteToken = AssetService.getQuoteAsset();
     let orderAmount;
     let fillBaseUnitAmount;
     let baseToken;
 
     if (order.makerTokenAddress === quoteToken.address) {
       orderAmount = order.takerTokenAmount;
-      baseToken = await TokenService.findTokenByAddress(
+      baseToken = await AssetService.findAssetByAddress(
         order.takerTokenAddress
       );
     } else if (order.takerTokenAddress === quoteToken.address) {
       orderAmount = order.makerTokenAmount;
-      baseToken = await TokenService.findTokenByAddress(
+      baseToken = await AssetService.findAssetByAddress(
         order.makerTokenAddress
       );
     } else {
@@ -234,7 +246,7 @@ export function fillOrder(order, amount = null) {
     }
 
     if (amount) {
-      fillBaseUnitAmount = ZeroEx.toBaseUnitAmount(
+      fillBaseUnitAmount = Web3Wrapper.toBaseUnitAmount(
         new BigNumber(amount),
         baseToken.decimals
       )
@@ -273,10 +285,12 @@ export function fillOrder(order, amount = null) {
         batch: false
       })
     );
-    await ZeroExService.fillOrder(order, fillBaseUnitAmount, amount, {
-      wei: true,
-      batch: false
-    });
+    await dispatch(
+      _fillOrder(order, fillBaseUnitAmount, amount, {
+        wei: true,
+        batch: false
+      })
+    );
   };
 }
 
@@ -335,10 +349,12 @@ export function fillOrders(orders, amount = null) {
         batch: false
       })
     );
-    await ZeroExService.batchFillOrKill(orderRequests, amount, {
-      wei: true,
-      batch: false
-    });
+    await dispatch(
+      batchFillOrKill(orderRequests, amount, {
+        wei: true,
+        batch: false
+      })
+    );
   };
 }
 
@@ -348,8 +364,9 @@ export function cancelOrder(order) {
       wallet: { web3, address }
     } = getState();
     const ethereumClient = new EthereumClient(web3);
-    const zeroExClient = new ZeroExClient(ethereumClient);
-    const zeroEx = await zeroExClient.getZeroExClient();
+    const contractWrappers = await new ZeroExClient(
+      ethereumClient
+    ).getContractWrappers();
 
     if (
       ethUtil.stripHexPrefix(order.maker) !== ethUtil.stripHexPrefix(address)
@@ -371,10 +388,7 @@ export function cancelOrder(order) {
       }
     }
 
-    const txhash = await zeroEx.exchange.cancelOrderAsync(
-      order,
-      new BigNumber(order.makerTokenAmount)
-    );
+    const txhash = await contractWrappers.exchange.cancelOrderAsync(order);
 
     const activeTransaction = {
       ...order,

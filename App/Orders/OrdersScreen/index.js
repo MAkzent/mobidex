@@ -12,8 +12,8 @@ import FormattedTokenAmount from '../../components/FormattedTokenAmount';
 import MutedText from '../../components/MutedText';
 import PageRoot from '../../components/PageRoot';
 import Row from '../../components/Row';
+import * as AssetService from '../../../services/AssetService';
 import NavigationService from '../../../services/NavigationService';
-import * as TokenService from '../../../services/TokenService';
 import Cancelling from './Cancelling';
 import Cancelled from './Cancelled';
 
@@ -37,8 +37,8 @@ const TokenOrder = connect(
       if (!order) return null;
 
       const { makerTokenAddress, takerTokenAddress } = order;
-      const makerToken = TokenService.findTokenByAddress(makerTokenAddress);
-      const takerToken = TokenService.findTokenByAddress(takerTokenAddress);
+      const makerToken = AssetService.findAssetByAddress(makerTokenAddress);
+      const takerToken = AssetService.findAssetByAddress(takerTokenAddress);
 
       if (!makerToken) return null;
       if (!takerToken) return null;

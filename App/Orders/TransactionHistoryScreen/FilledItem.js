@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { formatAmountWithDecimals } from '../../../utils';
-import * as TokenService from '../../../services/TokenService';
+import * as AssetService from '../../../services/AssetService';
 import TransactionItem from './TransactionItem';
 
 class FilledItem extends Component {
@@ -12,11 +12,11 @@ class FilledItem extends Component {
       filledTakerTokenAmount,
       timestamp
     } = this.props.transaction;
-    let makerToken = TokenService.findTokenByAddress(
+    let makerToken = AssetService.findAssetByAddress(
       this.props.transaction.makerToken ||
         this.props.transaction.makerTokenAddress
     );
-    let takerToken = TokenService.findTokenByAddress(
+    let takerToken = AssetService.findAssetByAddress(
       this.props.transaction.takerToken ||
         this.props.transaction.takerTokenAddress
     );
