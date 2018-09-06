@@ -1,15 +1,8 @@
 import { HttpClient } from '@0xproject/connect';
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { BigNumber, Web3Wrapper } from '0x.js';
 import ethUtil from 'ethereumjs-util';
 import * as _ from 'lodash';
-import {
-  addOrders,
-  setOrders,
-  setOrderbook,
-  setProducts,
-  setTokens
-} from '../actions';
+import { setOrders, setOrderbook, setProducts, setTokens } from '../actions';
 import EthereumClient from '../clients/ethereum';
 import RelayerClient from '../clients/relayer';
 import TokenClient from '../clients/token';
@@ -234,7 +227,7 @@ export function fillOrder(order, amount = null) {
     }
 
     if (amount) {
-      fillBaseUnitAmount = ZeroEx.toBaseUnitAmount(
+      fillBaseUnitAmount = Web3Wrapper.toBaseUnitAmount(
         new BigNumber(amount),
         baseToken.decimals
       )
@@ -348,8 +341,9 @@ export function cancelOrder(order) {
       wallet: { web3, address }
     } = getState();
     const ethereumClient = new EthereumClient(web3);
-    const zeroExClient = new ZeroExClient(ethereumClient);
-    const zeroEx = await zeroExClient.getZeroExClient();
+    const contractWrappers = await new ZeroExClient(
+      ethereumClient
+    ).getContractWrappers();
 
     if (
       ethUtil.stripHexPrefix(order.maker) !== ethUtil.stripHexPrefix(address)
@@ -371,10 +365,7 @@ export function cancelOrder(order) {
       }
     }
 
-    const txhash = await zeroEx.exchange.cancelOrderAsync(
-      order,
-      new BigNumber(order.makerTokenAmount)
-    );
+    const txhash = await contractWrappers.exchange.cancelOrderAsync(order);
 
     const activeTransaction = {
       ...order,

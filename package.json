@@ -11,8 +11,9 @@
         "build:ios:release": "echo 'You need to build an archive via XCode!'"
     },
     "dependencies": {
-        "0x.js": "^0.30.0",
-        "@0xproject/connect": "^0.6.17",
+        "0x.js": "^1.0.1",
+        "@0xproject/connect": "^2.0.0",
+        "@0xproject/web3-wrapper": "^2.0.2",
         "babel-plugin-transform-remove-console": "^6.9.0",
         "bignumber.js": "^5.0.0",
         "coinmarketcap-api": "^1.0.2",

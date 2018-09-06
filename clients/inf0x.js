@@ -17,7 +17,7 @@ export default class Inf0xClient {
       n
     });
 
-    const response = await fetch(`${this.endpoint}?${qs}`);
+    const response = await fetch(`${this.endpoint}/forex/history?${qs}`);
     const json = await response.json();
 
     // console.debug('Forex Prices', `https://mobidex.io/inf0x/forex/history?${qs}`);

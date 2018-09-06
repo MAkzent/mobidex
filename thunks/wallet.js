@@ -1,5 +1,4 @@
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { BigNumber, Web3Wrapper } from '0x.js';
 import { addActiveTransactions, addAssets, addTransactions } from '../actions';
 import EthereumClient from '../clients/ethereum';
 import TokenClient from '../clients/token';
@@ -208,7 +207,7 @@ export function wrapEther(amount, options = { wei: false, batch: false }) {
     const { address, decimals } = await TokenService.getWETHToken();
     const value = options.wei
       ? new BigNumber(amount)
-      : ZeroEx.toBaseUnitAmount(new BigNumber(amount), decimals);
+      : Web3Wrapper.toBaseUnitAmount(new BigNumber(amount), decimals);
 
     await ZeroExService.deposit(address, value, options);
   };
@@ -233,7 +232,7 @@ export function unwrapEther(amount, options = { wei: false, batch: false }) {
     const { address, decimals } = await TokenService.getWETHToken();
     const value = options.wei
       ? new BigNumber(amount)
-      : ZeroEx.toBaseUnitAmount(new BigNumber(amount), decimals);
+      : Web3Wrapper.toBaseUnitAmount(new BigNumber(amount), decimals);
 
     await ZeroExService.withdraw(address, value, options);
   };
@@ -267,7 +266,7 @@ export function checkAndSetTokenAllowance(
     const { decimals } = TokenService.findTokenByAddress(address);
     const amt = options.wei
       ? new BigNumber(amount)
-      : ZeroEx.toBaseUnitAmount(new BigNumber(amount), decimals);
+      : Web3Wrapper.toBaseUnitAmount(new BigNumber(amount), decimals);
 
     const allowance = await tokenClient.getAllowance();
     if (new BigNumber(amt).gt(allowance)) {

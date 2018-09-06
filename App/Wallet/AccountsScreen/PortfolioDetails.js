@@ -1,5 +1,4 @@
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { BigNumber, Web3Wrapper } from '0x.js';
 import React, { Component } from 'react';
 import { View } from 'react-native';
 import { Avatar, Text } from 'react-native-elements';
@@ -12,7 +11,7 @@ export default class PortfolioDetails extends Component {
     const balance = assets
       .map(a => ({
         ticker: TickerService.getForexTicker(a.symbol),
-        balance: ZeroEx.toUnitAmount(a.balance, a.decimals)
+        balance: Web3Wrapper.toUnitAmount(a.balance, a.decimals)
       }))
       .filter(f => f.ticker && f.ticker.price)
       .map(f => ({

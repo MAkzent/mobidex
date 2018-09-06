@@ -1,5 +1,5 @@
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { Web3Wrapper } from '@0xproject/web3-wrapper';
+import { BigNumber, generatePseudoRandomSalt, orderHashUtils } from '0x.js';
 import * as _ from 'lodash';
 import moment from 'moment';
 import EthereumClient from '../clients/ethereum';
@@ -46,11 +46,11 @@ export function getOrderPrice(order) {
   if (!makerToken) return null;
   if (!takerToken) return null;
 
-  const makerTokenUnitAmount = ZeroEx.toUnitAmount(
+  const makerTokenUnitAmount = Web3Wrapper.toUnitAmount(
     new BigNumber(order.makerTokenAmount),
     makerToken.decimals
   );
-  const takerTokenUnitAmount = ZeroEx.toUnitAmount(
+  const takerTokenUnitAmount = Web3Wrapper.toUnitAmount(
     new BigNumber(order.takerTokenAmount),
     takerToken.decimals
   );
@@ -119,12 +119,12 @@ export function convertLimitOrderToZeroExOrder(limitOrder) {
   switch (limitOrder.side) {
     case 'buy':
       order.makerTokenAddress = quoteToken.address;
-      order.makerTokenAmount = ZeroEx.toBaseUnitAmount(
+      order.makerTokenAmount = Web3Wrapper.toBaseUnitAmount(
         new BigNumber(limitOrder.price).mul(limitOrder.amount).abs(),
         quoteToken.decimals
       );
       order.takerTokenAddress = baseToken.address;
-      order.takerTokenAmount = ZeroEx.toBaseUnitAmount(
+      order.takerTokenAmount = Web3Wrapper.toBaseUnitAmount(
         new BigNumber(limitOrder.amount).abs(),
         baseToken.decimals
       );
@@ -132,12 +132,12 @@ export function convertLimitOrderToZeroExOrder(limitOrder) {
 
     case 'sell':
       order.makerTokenAddress = baseToken.address;
-      order.makerTokenAmount = ZeroEx.toBaseUnitAmount(
+      order.makerTokenAmount = Web3Wrapper.toBaseUnitAmount(
         new BigNumber(limitOrder.amount).abs(),
         baseToken.decimals
       );
       order.takerTokenAddress = quoteToken.address;
-      order.takerTokenAmount = ZeroEx.toBaseUnitAmount(
+      order.takerTokenAmount = Web3Wrapper.toBaseUnitAmount(
         new BigNumber(limitOrder.price).mul(limitOrder.amount).abs(),
         quoteToken.decimals
       );
@@ -159,11 +159,11 @@ export function convertZeroExOrderToLimitOrder(order) {
   if (!makerToken) return null;
   if (!takerToken) return null;
 
-  const makerTokenUnitAmount = ZeroEx.toUnitAmount(
+  const makerTokenUnitAmount = Web3Wrapper.toUnitAmount(
     new BigNumber(order.makerTokenAmount),
     makerToken.decimals
   );
-  const takerTokenUnitAmount = ZeroEx.toUnitAmount(
+  const takerTokenUnitAmount = Web3Wrapper.toUnitAmount(
     new BigNumber(order.takerTokenAmount),
     takerToken.decimals
   );
@@ -226,7 +226,7 @@ export function convertZeroExOrderToOrderRequest(order, amount = null) {
   const fillable = new BigNumber(order[amountProperty]).sub(
     order[filledProperty]
   );
-  const amountBN = ZeroEx.toBaseUnitAmount(
+  const amountBN = Web3Wrapper.toBaseUnitAmount(
     new BigNumber(amount || 0),
     baseToken.decimals
   );
@@ -299,12 +299,12 @@ export async function createOrder(limitOrder) {
     ...convertLimitOrderToZeroExOrder(limitOrder),
     maker: `0x${address.toLowerCase()}`,
     makerFee: new BigNumber(0),
-    taker: ZeroEx.NULL_ADDRESS,
+    taker: ZeroExClient.NULL_ADDRESS,
     takerFee: new BigNumber(0),
     expirationUnixTimestampSec: new BigNumber(moment().unix() + 60 * 60 * 24),
-    feeRecipient: ZeroEx.NULL_ADDRESS,
-    salt: ZeroEx.generatePseudoRandomSalt(),
-    exchangeContractAddress: await zeroExClient.getZeroExContractAddress()
+    feeRecipient: ZeroExClient.NULL_ADDRESS,
+    salt: generatePseudoRandomSalt(),
+    exchangeContractAddress: await zeroExClient.getExchangeContractAddress()
   };
 }
 
@@ -316,22 +316,17 @@ export async function signOrder(order) {
 
     const ethereumClient = new EthereumClient(web3);
     const zeroExClient = new ZeroExClient(ethereumClient);
-    const zeroEx = await zeroExClient.getZeroExClient();
-    const account = await ethereumClient.getAccount();
 
-    if (!order.salt) order.salt = ZeroEx.generatePseudoRandomSalt();
+    if (!order.salt) order.salt = generatePseudoRandomSalt();
 
-    const hash = ZeroEx.getOrderHashHex(order);
+    const orderHash = orderHashUtils.getOrderHashHex(order);
     // Halting at signature -- seems like a performance or network issue.
-    const ecSignature = await zeroEx.signOrderHashAsync(
-      hash,
-      account.toLowerCase()
-    );
+    const signature = await zeroExClient.signOrderHash(orderHash);
 
     return {
       ...order,
-      orderHash: hash,
-      ecSignature
+      orderHash,
+      signature
     };
   } catch (err) {
     NavigationService.error(err);

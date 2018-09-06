@@ -1,5 +1,4 @@
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { BigNumber, Web3Wrapper } from '0x.js';
 import ethUtil from 'ethereumjs-util';
 import moment from 'moment';
 import React from 'react';
@@ -53,7 +52,9 @@ export function formatTimestamp(timestamp) {
 export function formatAmountWithDecimals(amount, decimals) {
   if (amount === null) return formatAmount(0);
   if (!decimals) return formatAmount(amount);
-  return formatAmount(ZeroEx.toUnitAmount(new BigNumber(amount), decimals));
+  return formatAmount(
+    Web3Wrapper.toUnitAmount(new BigNumber(amount), decimals)
+  );
 }
 
 export function formatAmount(amount) {

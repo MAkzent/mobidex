@@ -18,8 +18,7 @@
 // // publish to network
 // if (opts.publishTransaction) self.publishTransaction = opts.publishTransaction
 
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { BigNumber, Web3Wrapper } from '0x.js';
 import EthTx from 'ethereumjs-tx';
 import ethUtil from 'ethereumjs-util';
 import sigUtil from 'eth-sig-util';
@@ -187,13 +186,13 @@ export function getBalanceByAddress(address) {
   if (!address) return getBalanceBySymbol('ETH');
   const asset = getAssetByAddress(address);
   if (!asset) return new BigNumber(0);
-  return ZeroEx.toUnitAmount(new BigNumber(asset.balance), asset.decimals);
+  return Web3Wrapper.toUnitAmount(new BigNumber(asset.balance), asset.decimals);
 }
 
 export function getBalanceBySymbol(symbol) {
   const asset = getAssetBySymbol(symbol);
   if (!asset) return new BigNumber(0);
-  return ZeroEx.toUnitAmount(new BigNumber(asset.balance), asset.decimals);
+  return Web3Wrapper.toUnitAmount(new BigNumber(asset.balance), asset.decimals);
 }
 
 export function getAdjustedBalanceByAddress(address) {

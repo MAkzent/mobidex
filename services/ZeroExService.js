@@ -1,8 +1,9 @@
-import BigNumber from 'bignumber.js';
+import { BigNumber } from '0x.js';
 import ethUtil from 'ethereumjs-util';
 import { ContractDefinitionLoader } from 'web3-contracts-loader';
-import EthereumClient from '../clients/ethereum';
 import ZeroExClient from '../clients/0x';
+import EthereumClient from '../clients/ethereum';
+import TokenClient from '../clients/token';
 import { TransactionService } from './TransactionService';
 
 const TOKEN_ABI = require('../abi/Token.json');
@@ -90,13 +91,8 @@ export async function setUnlimitedProxyAllowance(address) {
     wallet: { web3 }
   } = _store.getState();
   const ethereumClient = new EthereumClient(web3);
-  const zeroExClient = new ZeroExClient(ethereumClient);
-  const zeroEx = await zeroExClient.getZeroExClient();
-  const account = await ethereumClient.getAccount();
-  const txhash = await zeroEx.token.setUnlimitedProxyAllowanceAsync(
-    `0x${ethUtil.stripHexPrefix(address.toString().toLowerCase())}`,
-    `0x${ethUtil.stripHexPrefix(account.toString().toLowerCase())}`
-  );
+  const tokenClient = new TokenClient(ethereumClient, address);
+  const txhash = await tokenClient.setUnlimitedProxyAllowance();
   const activeTransaction = {
     id: txhash,
     type: 'APPROVAL',
@@ -112,13 +108,7 @@ export async function deposit(address, amount) {
   } = _store.getState();
   const ethereumClient = new EthereumClient(web3);
   const zeroExClient = new ZeroExClient(ethereumClient);
-  const zeroEx = await zeroExClient.getZeroExClient();
-  const account = await ethereumClient.getAccount();
-  const txhash = await zeroEx.etherToken.depositAsync(
-    address,
-    new BigNumber(amount),
-    `0x${ethUtil.stripHexPrefix(account.toString().toLowerCase())}`
-  );
+  const txhash = await zeroExClient.depositEther(new BigNumber(amount));
   const activeTransaction = {
     id: txhash,
     type: 'DEPOSIT',
@@ -134,13 +124,7 @@ export async function withdraw(address, amount) {
   } = _store.getState();
   const ethereumClient = new EthereumClient(web3);
   const zeroExClient = new ZeroExClient(ethereumClient);
-  const zeroEx = await zeroExClient.getZeroExClient();
-  const account = await ethereumClient.getAccount();
-  const txhash = await zeroEx.etherToken.withdrawAsync(
-    address,
-    new BigNumber(amount),
-    `0x${ethUtil.stripHexPrefix(account.toString().toLowerCase())}`
-  );
+  const txhash = await zeroExClient.withdrawEther(new BigNumber(amount));
   const activeTransaction = {
     id: txhash,
     type: 'WITHDRAWAL',

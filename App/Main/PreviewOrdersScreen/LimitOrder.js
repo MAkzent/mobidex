@@ -1,8 +1,8 @@
+import { BigNumber } from '0x.js';
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { View } from 'react-native';
 import { connect } from 'react-redux';
-import BigNumber from 'bignumber.js';
 import { colors, getProfitLossStyle } from '../../../styles';
 import { submitOrder } from '../../../thunks';
 import Button from '../../components/Button';

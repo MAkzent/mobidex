@@ -1,4 +1,5 @@
-import { ZeroEx } from '0x.js';
+import { BigNumber, Web3Wrapper } from '0x.js';
+import ethUtil from 'ethereumjs-util';
 import { ContractDefinitionLoader } from 'web3-contracts-loader';
 import { cache, time } from '../decorators/cls';
 import { hex2a } from '../utils';
@@ -120,13 +121,13 @@ export default class TokenClient {
     return 'client:token:' + this.address + ':balance';
   }, 10 * 1000)
   async getBalance() {
-    const zeroEx = await new ZeroExClient(
+    const contractWrappers = await new ZeroExClient(
       this.ethereumClient
-    ).getZeroExClient();
+    ).getContractWrappers();
     const account = await this.ethereumClient.getAccount();
-    return await zeroEx.token.getBalanceAsync(
-      this.address,
-      account.toString().toLowerCase()
+    return await contractWrappers.erc20Token.getBalanceAsync(
+      `0x${ethUtil.stripHexPrefix(this.address.toString().toLowerCase())}`,
+      `0x${ethUtil.stripHexPrefix(account.toString().toLowerCase())}`
     );
   }
 
@@ -135,24 +136,39 @@ export default class TokenClient {
     return 'client:token:' + this.address + ':allowance';
   }, 10 * 1000)
   async getAllowance() {
-    const zeroEx = await new ZeroExClient(
+    const contractWrappers = await new ZeroExClient(
       this.ethereumClient
-    ).getZeroExClient();
+    ).getContractWrappers();
     const account = await this.ethereumClient.getAccount();
-    return await zeroEx.token.getProxyAllowanceAsync(this.address, account);
+    return await contractWrappers.erc20Token.getProxyAllowanceAsync(
+      `0x${ethUtil.stripHexPrefix(this.address.toString().toLowerCase())}`,
+      `0x${ethUtil.stripHexPrefix(account.toString().toLowerCase())}`
+    );
+  }
+
+  @time
+  async setUnlimitedProxyAllowance() {
+    const contractWrappers = await new ZeroExClient(
+      this.ethereumClient
+    ).getContractWrappers();
+    const account = await this.ethereumClient.getAccount();
+    return await contractWrappers.erc20Token.setUnlimitedProxyAllowanceAsync(
+      `0x${ethUtil.stripHexPrefix(this.address.toString().toLowerCase())}`,
+      `0x${ethUtil.stripHexPrefix(account.toString().toLowerCase())}`
+    );
   }
 
   @time
   async sendTokens(to, amount) {
-    const account = await this.ethereumClient.getAccount();
-    const zeroEx = await new ZeroExClient(
+    const contractWrappers = await new ZeroExClient(
       this.ethereumClient
-    ).getZeroExClient();
+    ).getContractWrappers();
+    const account = await this.ethereumClient.getAccount();
     const { decimals } = await this.get();
-    const value = ZeroEx.toBaseUnitAmount(new BigNumber(amount), decimals);
-    return await zeroEx.token.transferAsync(
-      this.address,
-      account.toLowerCase(),
+    const value = Web3Wrapper.toBaseUnitAmount(new BigNumber(amount), decimals);
+    return await contractWrappers.erc20Token.transferAsync(
+      `0x${ethUtil.stripHexPrefix(this.address.toString().toLowerCase())}`,
+      `0x${ethUtil.stripHexPrefix(account.toString().toLowerCase())}`,
       `0x${ethUtil.stripHexPrefix(to)}`.toLowerCase(),
       value
     );

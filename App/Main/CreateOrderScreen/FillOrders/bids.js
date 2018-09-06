@@ -1,5 +1,4 @@
-import { ZeroEx } from '0x.js';
-import BigNumber from 'bignumber.js';
+import { BigNumber, Web3Wrapper } from '0x.js';
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
@@ -42,7 +41,7 @@ class FillBids extends Component {
     }
 
     const result = [];
-    let amountInWEI = ZeroEx.toBaseUnitAmount(
+    let amountInWEI = Web3Wrapper.toBaseUnitAmount(
       new BigNumber(amount),
       baseToken.decimals
     );
